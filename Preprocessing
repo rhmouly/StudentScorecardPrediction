@@ -2,12 +2,19 @@
 #Start Program
 ######################################################################
 library(tidyverse)
+library(deplyr)
 library(naniar)
 library(visdat)
 library(funModeling)
 library(Hmisc)
 library(ggplot2)
 library(corrplot)
+library(GGally)
+library(outliers)
+library(mice)
+library(VIM)
+library(lattice)
+library(binaryLogic)
 ######################################################################
 ###To be put in Read function
 ##Read CSV
@@ -16,48 +23,16 @@ setwd("C:/Users/rhmou/OneDrive/Documents/Practical Business Analytics/Coursework
 ScoreCardRawData <- read.csv(DATASET_FILENAME,encoding="UTF-8",stringsAsFactors = FALSE, na.strings = c("PrivacySuppressed", "NULL", "", " "))
 
 ##Choose fields
-ChosenData <- ScoreCardRawData %>% select(median_hh_inc,
-                    poverty_rate,
-                    unemp_rate,
-                    female,
-                    md_faminc,
-                    INSTNM,
-                    STABBR,
-                    PREDDEG,
-                    CONTROL,
-                    LOCALE,
-                    locale2,
-                    HIGHDEG,
-                    SAT_AVG,
-                    region,
-                    CCBASIC,
-                    ADM_RATE,
-                    COSTT4_A,
-                    COSTT4_P,
-                    TUITIONFEE_IN,
-                    TUITIONFEE_OUT,
-                    TUITIONFEE_PROG,
-                    TUITFTE,
-                    INEXPFTE,
-                    DEBT_MDN_SUPP,
-                    sch_deg,
-                    Year,
-                    COMP_ORIG_YR2_RT,
-                    COMP_4YR_TRANS_YR2_RT,
-                    COMP_2YR_TRANS_YR2_RT,
-                    INC_PCT_LO,
-                    DEP_STAT_PCT_IND,
-                    INC_PCT_M1,
-                    INC_PCT_M2,
-                    INC_PCT_H1,
-                    INC_PCT_H2,
-                    md_earn_wne_p6,
-                    md_earn_wne_p8,
-                    md_earn_wne_p10
- )
+ChosenData <- ScoreCardRawData %>% select(median_hh_inc,poverty_rate,
+  unemp_rate, female, md_faminc, INSTNM, Year, STABBR, PREDDEG, CONTROL, LOCALE,
+  locale2, HIGHDEG, sch_deg, region, PCTFLOAN, CCBASIC, ADM_RATE, SAT_AVG, COSTT4_A,
+  COSTT4_P, TUITIONFEE_IN, TUITIONFEE_OUT, TUITIONFEE_PROG, TUITFTE, INEXPFTE,
+  DEBT_MDN_SUPP, COMP_ORIG_YR2_RT, COMP_4YR_TRANS_YR2_RT,
+  COMP_2YR_TRANS_YR2_RT, DEP_STAT_PCT_IND, INC_PCT_LO, INC_PCT_M1,
+  INC_PCT_M2, INC_PCT_H1, INC_PCT_H2, md_earn_wne_p10)
 
 ##Deallocate ScorecardRawData
-# rm(ScoreCardRawData)
+ rm(ScoreCardRawData)
 ######################################################################
 
 ######################################################################
@@ -66,82 +41,201 @@ ChosenData <- ScoreCardRawData %>% select(median_hh_inc,
 print("Summary Before making Changes")
 print(summary(ChosenData))
 
-##Converting DEBT_MDN_SUPP, md_earn_wne_p6, md_earn_wne_p8, md_earn_wne_p10, median_hh_inc, poverty_rate, 
-##unemp_rate, md_faminc, COMP_ORIG_YR2_RT, COMP_4YR_TRANS_YR2_RT, COMP_2YR_TRANS_YR2_RT, INC_PCT_LO
-##DEP_STAT_PCT_IND, INC_PCT_M1, INC_PCT_M2, INC_PCT_H1, INC_PCT_H2 to numeric
-ChosenData <- transform(ChosenData, DEBT_MDN_SUPP = as.numeric(DEBT_MDN_SUPP))
-ChosenData <- transform(ChosenData, md_earn_wne_p6 = as.numeric(md_earn_wne_p6))
-ChosenData <- transform(ChosenData, md_earn_wne_p8 = as.numeric(md_earn_wne_p8))
-ChosenData <- transform(ChosenData, md_earn_wne_p10 = as.numeric(md_earn_wne_p10))
-ChosenData <- transform(ChosenData, median_hh_inc = as.numeric(median_hh_inc))
-ChosenData <- transform(ChosenData, poverty_rate = as.numeric(poverty_rate))
-ChosenData <- transform(ChosenData, unemp_rate = as.numeric(unemp_rate))
-ChosenData <- transform(ChosenData, md_faminc = as.numeric(md_faminc))
-ChosenData <- transform(ChosenData, female = as.numeric(female))
-ChosenData <- transform(ChosenData, COMP_ORIG_YR2_RT = as.numeric(COMP_ORIG_YR2_RT))
-ChosenData <- transform(ChosenData, COMP_4YR_TRANS_YR2_RT = as.numeric(COMP_4YR_TRANS_YR2_RT))
-ChosenData <- transform(ChosenData, COMP_2YR_TRANS_YR2_RT = as.numeric(COMP_2YR_TRANS_YR2_RT))
-ChosenData <- transform(ChosenData, INC_PCT_LO = as.numeric(INC_PCT_LO))
-ChosenData <- transform(ChosenData, DEP_STAT_PCT_IND = as.numeric(DEP_STAT_PCT_IND))
-ChosenData <- transform(ChosenData, INC_PCT_M1 = as.numeric(INC_PCT_M1))
-ChosenData <- transform(ChosenData, INC_PCT_M2 = as.numeric(INC_PCT_M2))
-ChosenData <- transform(ChosenData, INC_PCT_H1 = as.numeric(INC_PCT_H1))
-ChosenData <- transform(ChosenData, INC_PCT_H2 = as.numeric(INC_PCT_H2))
+#Converting character fields to factors
+ChosenData <- ChosenData %>% mutate_if(sapply(ChosenData, is.character), as.factor)
+ChosenData <- ChosenData %>% mutate_if(sapply(ChosenData, is.integer), as.numeric)
 
 ##Looking at the data
 print("Summary after making Changes")
 print(summary(ChosenData))
+
+#rm(ChosenData_factor)
 ######################################################################
 
 ######################################################################
 ###To be put in Missing_Data function
 
-#Removing records with NA in output fields and cost_of_education fields
-NA_Summary <- aggregate(is.na(ChosenData), list(ChosenData$Year), mean)
-print(NA_Summary)
-Chosen_Years <- subset(NA_Summary, (md_earn_wne_p6 != 1 | md_earn_wne_p8 != 1 | md_earn_wne_p10 != 1) 
-                       & (COSTT4_A != 1 | COSTT4_P != 1))
-print(Chosen_Years)
-ChosenData_Lesser_Missing_Values <- subset(ChosenData, (Year == 2009 | Year == 2011))
-
-##Looking at the data
-print("Summary after removing rows with lot of NAs")
-print(summary(ChosenData_Lesser_Missing_Values))
-
-##Counting NA Columnwise
-print(colSums(is.na(ChosenData_Lesser_Missing_Values)))
-
-##Removing fields that are completely NULL
-ChosenData_Lesser_Fields <- ChosenData_Lesser_Missing_Values[, c(6:9, 12:14, 16:38)]
-
-##Counting NA Columnwise
-print(colSums(is.na(ChosenData_Lesser_Fields)))
-
 ##Combining the attendance cost fields from program year and academic year institutions into one field
 ##Populating 0 when COSTT4_A is available and COSTT4_P is NA and vice versa
-ChosenData_Lesser_Fields$COSTT4_A[is.na(ChosenData_Lesser_Fields$COSTT4_A) 
-                                          & !is.na(ChosenData_Lesser_Fields$COSTT4_P)] <- 0
-ChosenData_Lesser_Fields$COSTT4_P[is.na(ChosenData_Lesser_Fields$COSTT4_P) 
-                                          & !is.na(ChosenData_Lesser_Fields$COSTT4_A)] <- 0
+ChosenData$COSTT4_A[is.na(ChosenData$COSTT4_A) & !is.na(ChosenData$COSTT4_P)] <- 0
+ChosenData$COSTT4_P[is.na(ChosenData$COSTT4_P) & !is.na(ChosenData$COSTT4_A)] <- 0
+ChosenData <- ChosenData %>% mutate(ATDCOST = COSTT4_A + COSTT4_P)
 
-ChosenData_Lesser_Fields <- ChosenData_Lesser_Fields %>% mutate(ATDCOST = COSTT4_A + COSTT4_P)
+##Removing old cost features and adjusting the field positions
+ChosenData <- ChosenData[, -(20:21)]
+ChosenData <- ChosenData[, c(1:19, 36, 20:35)]
 
-##Removing old cost features
-ChosenData_Lesser_Fields <- ChosenData_Lesser_Fields[, c(1:8, 31, 11:30)]
 
-print(head(ChosenData_Lesser_Fields))
-#NA_Val <- colSums(is.na(ChosenData_Lesser_Fields))
+#Removing records with all NA values in output fields and cost_of_education fields
+NA_Summary <- aggregate(is.na(ChosenData), list(ChosenData$Year), mean)
+print(NA_Summary)
+Chosen_Years <- subset(NA_Summary, md_earn_wne_p10 != 1 & (ATDCOST != 1 & ADM_RATE != 1))
+print(Chosen_Years)
+ChosenData_Lesser_Years <- subset(ChosenData, (Year %in% c( 2009, 2011)))
 
-##Imputing Values
-for(i in 1:ncol(ChosenData_Lesser_Fields)){
-  ##Since the categorical fields do not have NA, we are imputing only for the numeric fields by populating the mean value
-  if (is.numeric(ChosenData_Lesser_Fields[,i])) 
-    ChosenData_Lesser_Fields[is.na(ChosenData_Lesser_Fields[,i]), i] <- mean(ChosenData_Lesser_Fields[,i], na.rm = TRUE)
-}
+##Removing Records with NA values in the target field
+ChosenData_Lesser_Years <- subset(ChosenData_Lesser_Years, (!is.na(md_earn_wne_p10)))
 
-#write.csv(ChosenData_Lesser_Fields, "Scorecard_Subset.csv")
+##Looking at the data
+print("Summary after years with NAs in important fields are removed")
+print(summary(ChosenData_Lesser_Years))
+
+rm(NA_Summary, Chosen_Years)
+
+##Counting NA Columnwise
+print(colSums(is.na(ChosenData_Lesser_Years)))
+
+
+##Removing fields that have more than 70% NA values
+ChosenData_Lesser_Fields <- ChosenData_Lesser_Years[colSums(is.na(ChosenData_Lesser_Years))<=(nrow(ChosenData_Lesser_Years)*0.7)]
 
 ##Counting NA Columnwise
 print(colSums(is.na(ChosenData_Lesser_Fields)))
 
-summary(ChosenData_Lesser_Fields)
+##Removing records with higher percentage of NULL fields
+ChosenData_Lesser_Fields$countNA <- rowSums(is.na(ChosenData_Lesser_Fields))
+
+Rows_Missing_Data <- data.frame(table(ChosenData_Lesser_Fields$countNA))
+names(Rows_Missing_Data) <- c("NACount", "Freq")
+print(Rows_Missing_Data)
+Rows_Missing_Data$CumFreq <- cumsum(Rows_Missing_Data$Freq)
+ggplot(Rows_Missing_Data, aes(x = NACount, y = CumFreq, group = 1)) +
+  geom_line() +
+  geom_point(size = 2) + 
+  geom_text(aes(label = CumFreq), hjust = 0, vjust = 1.5)
+
+#Filtering the rows with more than 13 NA values and removing the additional field
+ChosenData_Lesser_Rows <- ChosenData_Lesser_Fields[ChosenData_Lesser_Fields$countNA <= 11, -27]
+print(ChosenData_Lesser_Fields)
+rm(Rows_Missing_Data)
+
+##############################################################################################
+##############################################################################################
+##Imputing Missing Values
+##############################################################################################
+
+##Imputing Values with mean
+# for(i in 1:ncol(ChosenData_Lesser_Fields)){
+#   ##Since the categorical fields do not have NA, we are imputing only for the numeric fields by populating the mean value
+#   if (is.numeric(ChosenData_Lesser_Fields[,i])) 
+#     ChosenData_Lesser_Fields[is.na(ChosenData_Lesser_Fields[,i]), i] <- mean(ChosenData_Lesser_Fields[,i], na.rm = TRUE)
+# }
+#md.pattern(ChosenData_Tgt_Classes)
+#write.csv(ChosenData_Lesser_Fields, "Scorecard_Subset.csv")
+mice_mod <- mice::mice(ChosenData_Lesser_Rows[, !names(ChosenData_Lesser_Rows) %in% c("INSTNM")], m=5, maxit=5,
+                       method = "cart")
+##Counting NA Columnwise
+print(colSums(is.na(ChosenData_Lesser_Rows)))
+
+densityplot(mice_mod)
+ChosenData_Imputed <- complete(mice_mod)
+
+print(summary(ChosenData_Imputed))
+
+######################################################################
+##Outlier Analysis and Treatment
+######################################################################
+##Capping Outliers in Input Variables
+
+capOutlier <- function(x){
+  qnt <- quantile(x, probs=c(.25, .75), na.rm = T)
+  caps <- quantile(x, probs=c(.05, .95), na.rm = T)
+  H <- 1.5 * IQR(x, na.rm = T)
+  x[x < (qnt[1] - H)] <- caps[1]
+  x[x > (qnt[2] + H)] <- caps[2]
+  return(x)
+}
+
+for(i in 1:ncol(ChosenData_Imputed)-1){
+  if (is.numeric(ChosenData_Imputed[,i]) && length(unique(ChosenData_Imputed[,i])) > 10)
+    ChosenData_Imputed[,i] <- capOutlier(ChosenData_Imputed[,i])
+}
+rm(i)
+
+##Outliers in the output variable
+ggplot(ChosenData_Lesser_Rows) +
+  aes(x = md_earn_wne_p10) +
+  geom_histogram(bins = 30L, fill = "#0c4c8a") +
+  theme_minimal()
+
+#boxplot(ChosenData_Lesser_Rows$md_earn_wne_p10, ylab = "md_earn_wne_p10")
+Target_Outliers <- boxplot.stats(ChosenData_Lesser_Rows$md_earn_wne_p10)$out
+Target_Outlier_Ind <- which(ChosenData_Lesser_Rows$md_earn_wne_p10 %in% c(Target_Outliers))
+print(paste0("Percentage of outliers in target variable: ", as.numeric(nrow(ChosenData_Lesser_Rows[Target_Outlier_Ind, ])/nrow(ChosenData_Lesser_Rows))))
+print(nrow(ChosenData_Lesser_Rows[Target_Outlier_Ind, ]))
+
+######################################################################
+##Encoding for all categorical fields
+######################################################################
+
+ChosenData_Categorical <- ChosenData_Imputed[, names(ChosenData_Imputed) %in% 
+                                                   c("STABBR", "PREDDEG", "CONTROL", "HIGHDEG", "region")]
+print(ChosenData_Categorical)
+
+encode_binary <- function(x, order = unique(x), name = "v_") {
+  x <- as.numeric(factor(x, levels = order))
+  x2 <- as.binary(x)
+  maxlen <- max(sapply(x2, length))
+  x2 <- lapply(x2, function(y) {
+    l <- length(y)
+    if (l < maxlen) {
+      y <- c(rep(0, (maxlen - l)), y)
+    }
+    y
+  })
+  d <- as.data.frame(t(as.data.frame(x2)))
+  rownames(d) <- NULL
+  colnames(d) <- paste0(name, 1:maxlen)
+  d
+}
+
+for(i in 1:ncol(ChosenData_Categorical)) {
+  if(length(unique(ChosenData_Categorical[,i])) <= 5)
+  {#Label Encoding
+    ChosenData_Categorical[,i] <- as.numeric(ChosenData_Categorical[,i])}
+  else
+  {#Binary Encoding
+    ChosenData_Categorical <- ChosenData_Categorical %>% 
+      mutate(encode_binary(ChosenData_Categorical[,i], order = 
+                             unique(ChosenData_Categorical[,i]), 
+                           name=colnames(ChosenData_Categorical[i])))
+  }
+}
+
+ChosenData_Encoded <- ChosenData_Imputed %>% mutate(ChosenData_Categorical)
+ChosenData_Encoded <- ChosenData_Encoded[, !names(ChosenData_Encoded) %in% c("STABBR", "region")]
+print(head(ChosenData_Encoded))
+
+rm(ChosenData_Categorical)
+
+######################################################################
+##Classifying the output variable into 4 classes
+######################################################################
+
+ChosenData_Tgt_Classes <- ChosenData_Encoded %>% mutate(cut(ChosenData_Encoded$md_earn_wne_p10, 4, labels = c("Low", "Medium", "High", "Very High")))
+print(head(ChosenData_Tgt_Classes))
+colnames(ChosenData_Tgt_Classes)[34] <- "Salary_Class_After_10_years"
+
+print(ChosenData_Tgt_Classes)
+#print(unique(ChosenData_Tgt_Classes[ChosenData_Tgt_Classes$Salary_Class_After_10_years == "Very High", c(30,31)]))
+
+write.csv(ChosenData_Tgt_Classes, "ScoreCard_cleaner_Dataset.csv")
+
+######################################################################
+##Correlation Matrix
+######################################################################
+
+##Correlation between numeric input fields
+ChosenData_Correlation <- ChosenData_Tgt_Classes[, !names(ChosenData_Tgt_Classes) %in% c("Salary_Class_After_10_years", "md_earn_wne_p10")]
+ChosenData_Correlation.cor = cor(ChosenData_Correlation, method = c("pearson"))
+
+corrplot(ChosenData_Correlation.cor, method="color")
+
+##Correlation between numeric input fields and the output field
+CO_cor = cor(ChosenData_Correlation, ChosenData_Tgt_Classes[,23], method = c("pearson"))
+corrplot(CO_cor, method="color")
+
+rm(ChosenData_Correlation, ChosenData_Correlation.cor)
+
+##Removing fields with high positive correlation and no correlation at all
+#ChosenData_Final <- ChosenData_Tgt_Classes[, !names(ChosenData_Tgt_Classes) %in% c("TUITIONFEE_IN", "TUITIONFEE_OUT", "TUITIONFEE_PROG", "TUITFTE")]
